@@ -50,6 +50,8 @@ Sources/
 | Gradient color | #407245 | `ReminderView.setupGradient()` |
 | Reminder text template | `久坐 {{sedentaryMinutes}} 分钟了，休息一下吧！` | `AppDelegate.reminderText` |
 | Log retention | 2 days | `Logger.cleanupOldLogs()` |
+| Esc dismiss count | 5 presses | `ReminderWindowController.startEscMonitor()` |
+| Esc reset window | 2 sec | `ReminderWindowController.startEscMonitor()` |
 
 ## Pitfalls
 
@@ -58,6 +60,7 @@ Sources/
 - **LSUIElement mode:** No Dock icon, no Cmd+Tab — only menu bar access; test menu interactions accordingly
 - **Info.plist:** Excluded from SPM target via `exclude:` in Package.swift; copied to .app bundle by Makefile
 - **Launch at Login:** Uses `SMAppService.mainApp` (macOS 13+); requires signed app bundle to function
+- **Esc dismiss:** Monitor is added/removed with panel lifecycle; uses `[weak self]` and `NSEvent.removeMonitor()` to prevent leaks
 
 ## Spec Reference
 

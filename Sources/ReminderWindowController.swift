@@ -2,6 +2,11 @@ import Cocoa
 
 final class ReminderWindowController {
     private var panels: [NSPanel] = []
+    private var escMonitor: Any?
+    private var escPressCount: Int = 0
+    private var lastEscTime: Date = .distantPast
+
+    var onEscDismiss: (() -> Void)?
 
     func showOnAllScreens(text: String) {
         dismissAll()
@@ -11,13 +16,43 @@ final class ReminderWindowController {
             panels.append(panel)
             panel.orderFrontRegardless()
         }
+
+        startEscMonitor()
     }
 
     func dismissAll() {
+        stopEscMonitor()
         for panel in panels {
             panel.close()
         }
         panels.removeAll()
+    }
+
+    private func startEscMonitor() {
+        stopEscMonitor()
+        escPressCount = 0
+        escMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self = self, event.keyCode == 53 else { return } // 53 = Esc
+            let now = Date()
+            if now.timeIntervalSince(self.lastEscTime) > 2.0 {
+                self.escPressCount = 0
+            }
+            self.lastEscTime = now
+            self.escPressCount += 1
+            if self.escPressCount >= 5 {
+                DispatchQueue.main.async {
+                    self.dismissAll()
+                    self.onEscDismiss?()
+                }
+            }
+        }
+    }
+
+    private func stopEscMonitor() {
+        if let monitor = escMonitor {
+            NSEvent.removeMonitor(monitor)
+            escMonitor = nil
+        }
     }
 
     private func createPanel(for screen: NSScreen, text: String) -> NSPanel {

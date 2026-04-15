@@ -60,6 +60,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let menu = NSMenu()
 
+        // Enabled toggle
+        enableMenuItem = NSMenuItem(title: "Enabled", action: #selector(toggleEnabled), keyEquivalent: "e")
+        enableMenuItem.state = .on
+        menu.addItem(enableMenuItem)
+
+        // Launch at Login
+        launchAtLoginMenuItem = NSMenuItem(title: "Launch at Login", action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
+        launchAtLoginMenuItem.state = SMAppService.mainApp.status == .enabled ? .on : .off
+        menu.addItem(launchAtLoginMenuItem)
+
         // Log submenu
         let logItem = NSMenuItem(title: "Log", action: nil, keyEquivalent: "")
         let logSubmenu = NSMenu()
@@ -67,18 +77,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         logItem.submenu = logSubmenu
         menu.addItem(logItem)
 
-        // Enabled toggle (top-level)
-        enableMenuItem = NSMenuItem(title: "Enabled", action: #selector(toggleEnabled), keyEquivalent: "e")
-        enableMenuItem.state = .on
-        menu.addItem(enableMenuItem)
-
-        // Settings (top-level)
+        // Settings
         menu.addItem(NSMenuItem(title: "Settings...", action: #selector(openSettings), keyEquivalent: ","))
-
-        // Launch at Login (top-level)
-        launchAtLoginMenuItem = NSMenuItem(title: "Launch at Login", action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
-        launchAtLoginMenuItem.state = SMAppService.mainApp.status == .enabled ? .on : .off
-        menu.addItem(launchAtLoginMenuItem)
 
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(quitApp), keyEquivalent: "q"))
@@ -104,6 +104,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             DispatchQueue.main.async {
                 self?.reminderController.dismissAll()
             }
+        }
+
+        reminderController.onEscDismiss = { [weak self] in
+            self?.activityMonitor.forceResetSession()
         }
     }
 

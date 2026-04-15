@@ -15,6 +15,14 @@ final class ActivityMonitor {
     var onShouldShowReminder: (() -> Void)?
     var onShouldDismissReminder: (() -> Void)?
 
+    func forceResetSession() {
+        isReminderShowing = false
+        lastActivityTime = Date()
+        sessionStartTime = Date()
+        isUserActive = true
+        Logger.shared.log("提醒窗口被手动关闭（连续 5 次 Esc），久坐计时器已重置")
+    }
+
     private var inactivityThresholdForDismiss: TimeInterval {
         Double(reminderDismissMinutes) * 60
     }
