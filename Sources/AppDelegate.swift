@@ -1,4 +1,5 @@
 import Cocoa
+import ServiceManagement
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
@@ -7,12 +8,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var settingsWindowController: SettingsWindowController?
     private var isEnabled = true
     private var enableMenuItem: NSMenuItem!
+    private var launchAtLoginMenuItem: NSMenuItem!
+
+    private var reminderText: String = "久坐 {{sedentaryMinutes}} 分钟了，休息一下吧！"
+
+    // MARK: - UserDefaults Keys
+    private enum DefaultsKey {
+        static let sedentaryMinutes = "sedentaryMinutes"
+        static let reminderDismissMinutes = "reminderDismissMinutes"
+        static let reminderText = "reminderText"
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        loadSettings()
         setupStatusItem()
         setupActivityMonitor()
         activityMonitor.start()
         Logger.shared.log("应用启动")
+    }
+
+    // MARK: - Settings Persistence
+
+    private func loadSettings() {
+        let defaults = UserDefaults.standard
+        if let mins = defaults.object(forKey: DefaultsKey.sedentaryMinutes) as? Int {
+            activityMonitor.sedentaryMinutes = mins
+        }
+        if let dismiss = defaults.object(forKey: DefaultsKey.reminderDismissMinutes) as? Int {
+            activityMonitor.reminderDismissMinutes = dismiss
+        }
+        if let text = defaults.string(forKey: DefaultsKey.reminderText) {
+            reminderText = text
+        }
+    }
+
+    private func saveSettings() {
+        let defaults = UserDefaults.standard
+        defaults.set(activityMonitor.sedentaryMinutes, forKey: DefaultsKey.sedentaryMinutes)
+        defaults.set(activityMonitor.reminderDismissMinutes, forKey: DefaultsKey.reminderDismissMinutes)
+        defaults.set(reminderText, forKey: DefaultsKey.reminderText)
     }
 
     // MARK: - Status Item
@@ -33,19 +67,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         logItem.submenu = logSubmenu
         menu.addItem(logItem)
 
-        // Time Setting submenu
-        let timeSettingItem = NSMenuItem(title: "Time Setting", action: nil, keyEquivalent: "")
-        let timeSubmenu = NSMenu()
-
+        // Enabled toggle (top-level)
         enableMenuItem = NSMenuItem(title: "Enabled", action: #selector(toggleEnabled), keyEquivalent: "e")
         enableMenuItem.state = .on
-        timeSubmenu.addItem(enableMenuItem)
+        menu.addItem(enableMenuItem)
 
-        timeSubmenu.addItem(NSMenuItem.separator())
-        timeSubmenu.addItem(NSMenuItem(title: "Settings...", action: #selector(openSettings), keyEquivalent: ","))
+        // Settings (top-level)
+        menu.addItem(NSMenuItem(title: "Settings...", action: #selector(openSettings), keyEquivalent: ","))
 
-        timeSettingItem.submenu = timeSubmenu
-        menu.addItem(timeSettingItem)
+        // Launch at Login (top-level)
+        launchAtLoginMenuItem = NSMenuItem(title: "Launch at Login", action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
+        launchAtLoginMenuItem.state = SMAppService.mainApp.status == .enabled ? .on : .off
+        menu.addItem(launchAtLoginMenuItem)
 
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(quitApp), keyEquivalent: "q"))
@@ -59,7 +92,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         activityMonitor.onShouldShowReminder = { [weak self] in
             DispatchQueue.main.async {
                 guard let self = self, self.isEnabled else { return }
-                self.reminderController.showOnAllScreens(minutes: self.activityMonitor.sedentaryMinutes)
+                let text = self.reminderText.replacingOccurrences(
+                    of: "{{sedentaryMinutes}}",
+                    with: "\(self.activityMonitor.sedentaryMinutes)"
+                )
+                self.reminderController.showOnAllScreens(text: text)
             }
         }
 
@@ -90,11 +127,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    @objc private func toggleLaunchAtLogin() {
+        do {
+            if SMAppService.mainApp.status == .enabled {
+                try SMAppService.mainApp.unregister()
+                launchAtLoginMenuItem.state = .off
+                Logger.shared.log("已关闭开机启动")
+            } else {
+                try SMAppService.mainApp.register()
+                launchAtLoginMenuItem.state = .on
+                Logger.shared.log("已开启开机启动")
+            }
+        } catch {
+            Logger.shared.log("切换开机启动失败: \(error.localizedDescription)")
+        }
+    }
+
     @objc private func openSettings() {
         if settingsWindowController == nil {
-            settingsWindowController = SettingsWindowController(currentMinutes: activityMonitor.sedentaryMinutes)
-            settingsWindowController?.onTimeChanged = { [weak self] minutes in
-                self?.activityMonitor.sedentaryMinutes = minutes
+            settingsWindowController = SettingsWindowController(
+                currentMinutes: activityMonitor.sedentaryMinutes,
+                dismissMinutes: activityMonitor.reminderDismissMinutes,
+                reminderText: reminderText
+            )
+            settingsWindowController?.onSettingsChanged = { [weak self] settings in
+                guard let self = self else { return }
+                self.activityMonitor.sedentaryMinutes = settings.sedentaryMinutes
+                self.activityMonitor.reminderDismissMinutes = settings.dismissMinutes
+                self.reminderText = settings.reminderText
+                self.saveSettings()
             }
         }
         settingsWindowController?.showWindow(nil)

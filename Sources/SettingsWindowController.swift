@@ -1,12 +1,20 @@
 import Cocoa
 
-final class SettingsWindowController: NSWindowController {
-    private var timeField: NSTextField!
-    var onTimeChanged: ((Int) -> Void)?
+struct SettingsData {
+    var sedentaryMinutes: Int
+    var dismissMinutes: Int
+    var reminderText: String
+}
 
-    convenience init(currentMinutes: Int) {
+final class SettingsWindowController: NSWindowController {
+    private var sedentaryField: NSTextField!
+    private var dismissField: NSTextField!
+    private var textField: NSTextField!
+    var onSettingsChanged: ((SettingsData) -> Void)?
+
+    convenience init(currentMinutes: Int, dismissMinutes: Int, reminderText: String) {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 320, height: 150),
+            contentRect: NSRect(x: 0, y: 0, width: 420, height: 280),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -16,30 +24,58 @@ final class SettingsWindowController: NSWindowController {
         window.isReleasedWhenClosed = false
 
         self.init(window: window)
-        setupUI(currentMinutes: currentMinutes)
+        setupUI(currentMinutes: currentMinutes, dismissMinutes: dismissMinutes, reminderText: reminderText)
     }
 
-    private func setupUI(currentMinutes: Int) {
+    private func setupUI(currentMinutes: Int, dismissMinutes: Int, reminderText: String) {
         guard let contentView = window?.contentView else { return }
 
-        let promptLabel = NSTextField(labelWithString: "久坐提醒时间（分钟）：")
-        promptLabel.font = NSFont.systemFont(ofSize: 14)
-        promptLabel.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(promptLabel)
+        let numFormatter = NumberFormatter()
+        numFormatter.allowsFloats = false
+        numFormatter.minimum = 1
+        numFormatter.maximum = 999
 
-        timeField = NSTextField()
-        timeField.stringValue = "\(currentMinutes)"
-        timeField.font = NSFont.monospacedDigitSystemFont(ofSize: 14, weight: .regular)
-        timeField.alignment = .center
-        timeField.translatesAutoresizingMaskIntoConstraints = false
-        // Use NumberFormatter to only allow digits
-        let formatter = NumberFormatter()
-        formatter.allowsFloats = false
-        formatter.minimum = 1
-        formatter.maximum = 999
-        timeField.formatter = formatter
-        contentView.addSubview(timeField)
+        // Sedentary time
+        let sedentaryLabel = NSTextField(labelWithString: "久坐提醒时间（分钟）：")
+        sedentaryLabel.font = NSFont.systemFont(ofSize: 14)
+        sedentaryLabel.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(sedentaryLabel)
 
+        sedentaryField = NSTextField()
+        sedentaryField.stringValue = "\(currentMinutes)"
+        sedentaryField.font = NSFont.monospacedDigitSystemFont(ofSize: 14, weight: .regular)
+        sedentaryField.alignment = .center
+        sedentaryField.translatesAutoresizingMaskIntoConstraints = false
+        sedentaryField.formatter = numFormatter
+        contentView.addSubview(sedentaryField)
+
+        // Dismiss time
+        let dismissLabel = NSTextField(labelWithString: "提醒窗口显示时间（分钟）：")
+        dismissLabel.font = NSFont.systemFont(ofSize: 14)
+        dismissLabel.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(dismissLabel)
+
+        dismissField = NSTextField()
+        dismissField.stringValue = "\(dismissMinutes)"
+        dismissField.font = NSFont.monospacedDigitSystemFont(ofSize: 14, weight: .regular)
+        dismissField.alignment = .center
+        dismissField.translatesAutoresizingMaskIntoConstraints = false
+        dismissField.formatter = numFormatter
+        contentView.addSubview(dismissField)
+
+        // Reminder text
+        let textLabel = NSTextField(labelWithString: "提醒文本（可用 {{sedentaryMinutes}}）：")
+        textLabel.font = NSFont.systemFont(ofSize: 14)
+        textLabel.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(textLabel)
+
+        textField = NSTextField()
+        textField.stringValue = reminderText
+        textField.font = NSFont.systemFont(ofSize: 14)
+        textField.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(textField)
+
+        // Save button
         let saveButton = NSButton(title: "Save", target: self, action: #selector(saveClicked))
         saveButton.translatesAutoresizingMaskIntoConstraints = false
         saveButton.bezelStyle = .rounded
@@ -47,24 +83,46 @@ final class SettingsWindowController: NSWindowController {
         contentView.addSubview(saveButton)
 
         NSLayoutConstraint.activate([
-            promptLabel.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-            promptLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 25),
+            sedentaryLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            sedentaryLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 25),
 
-            timeField.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-            timeField.topAnchor.constraint(equalTo: promptLabel.bottomAnchor, constant: 12),
-            timeField.widthAnchor.constraint(equalToConstant: 80),
+            sedentaryField.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            sedentaryField.topAnchor.constraint(equalTo: sedentaryLabel.bottomAnchor, constant: 6),
+            sedentaryField.widthAnchor.constraint(equalToConstant: 80),
+
+            dismissLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            dismissLabel.topAnchor.constraint(equalTo: sedentaryField.bottomAnchor, constant: 16),
+
+            dismissField.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            dismissField.topAnchor.constraint(equalTo: dismissLabel.bottomAnchor, constant: 6),
+            dismissField.widthAnchor.constraint(equalToConstant: 80),
+
+            textLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            textLabel.topAnchor.constraint(equalTo: dismissField.bottomAnchor, constant: 16),
+
+            textField.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            textField.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            textField.topAnchor.constraint(equalTo: textLabel.bottomAnchor, constant: 6),
 
             saveButton.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-            saveButton.topAnchor.constraint(equalTo: timeField.bottomAnchor, constant: 16)
+            saveButton.topAnchor.constraint(equalTo: textField.bottomAnchor, constant: 20)
         ])
     }
 
     @objc private func saveClicked() {
-        let value = timeField.integerValue
-        if value > 0 {
-            onTimeChanged?(value)
-            Logger.shared.log("用户修改久坐提醒时间为 \(value) 分钟")
-            window?.close()
-        }
+        let sedentary = sedentaryField.integerValue
+        let dismiss = dismissField.integerValue
+        let text = textField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard sedentary > 0, dismiss > 0, !text.isEmpty else { return }
+
+        let settings = SettingsData(
+            sedentaryMinutes: sedentary,
+            dismissMinutes: dismiss,
+            reminderText: text
+        )
+        onSettingsChanged?(settings)
+        Logger.shared.log("用户修改设置：久坐提醒 \(sedentary) 分钟，提醒显示 \(dismiss) 分钟，文本「\(text)」")
+        window?.close()
     }
 }

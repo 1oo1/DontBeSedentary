@@ -3,11 +3,11 @@ import Cocoa
 final class ReminderWindowController {
     private var panels: [NSPanel] = []
 
-    func showOnAllScreens(minutes: Int) {
+    func showOnAllScreens(text: String) {
         dismissAll()
 
         for screen in NSScreen.screens {
-            let panel = createPanel(for: screen, minutes: minutes)
+            let panel = createPanel(for: screen, text: text)
             panels.append(panel)
             panel.orderFrontRegardless()
         }
@@ -20,7 +20,7 @@ final class ReminderWindowController {
         panels.removeAll()
     }
 
-    private func createPanel(for screen: NSScreen, minutes: Int) -> NSPanel {
+    private func createPanel(for screen: NSScreen, text: String) -> NSPanel {
         let panel = NSPanel(
             contentRect: screen.frame,
             styleMask: [.nonactivatingPanel, .fullSizeContentView],
@@ -35,7 +35,7 @@ final class ReminderWindowController {
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.setFrame(screen.frame, display: true)
 
-        let contentView = ReminderView(frame: screen.frame, minutes: minutes)
+        let contentView = ReminderView(frame: screen.frame, text: text)
         panel.contentView = contentView
 
         return panel
@@ -48,10 +48,10 @@ private class ReminderView: NSVisualEffectView {
     private let gradientLayer = CAGradientLayer()
     private let label = NSTextField(labelWithString: "")
     private var breathingAnimation: CABasicAnimation?
-    private let minutes: Int
+    private let text: String
 
-    init(frame: NSRect, minutes: Int) {
-        self.minutes = minutes
+    init(frame: NSRect, text: String) {
+        self.text = text
         super.init(frame: frame)
         setup()
     }
@@ -92,7 +92,7 @@ private class ReminderView: NSVisualEffectView {
     }
 
     private func setupLabel() {
-        label.stringValue = "你已经使用电脑 \(minutes) 分钟了，休息一下吧！"
+        label.stringValue = text
         label.font = NSFont(name: "PingFang SC Medium", size: 28) ?? NSFont.systemFont(ofSize: 28, weight: .medium)
         label.textColor = .white
         label.alignment = .center

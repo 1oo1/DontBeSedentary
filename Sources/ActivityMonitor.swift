@@ -11,10 +11,14 @@ final class ActivityMonitor {
     private var isReminderShowing: Bool = false
 
     var sedentaryMinutes: Int = 45
+    var reminderDismissMinutes: Int = 10
     var onShouldShowReminder: (() -> Void)?
     var onShouldDismissReminder: (() -> Void)?
 
-    private let inactivityThresholdForDismiss: TimeInterval = 10 * 60 // 10 minutes
+    private var inactivityThresholdForDismiss: TimeInterval {
+        Double(reminderDismissMinutes) * 60
+    }
+    private let sessionEndInactivity: TimeInterval = 10 * 60 // 10 minutes
 
     func start() {
         startEventMonitors()
@@ -70,8 +74,8 @@ final class ActivityMonitor {
         let now = Date()
         let timeSinceLastActivity = now.timeIntervalSince(lastActivityTime)
 
-        // If user has been inactive for more than 2 minutes, consider them away
-        if timeSinceLastActivity > 120 {
+        // If user has been inactive for more than 10 minutes, consider them away
+        if timeSinceLastActivity > sessionEndInactivity {
             if isUserActive {
                 isUserActive = false
                 sessionStartTime = nil
