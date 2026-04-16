@@ -6,23 +6,31 @@ final class ReminderWindowController {
     private var escMonitor: Any?
     private var escPressCount: Int = 0
     private var lastEscTime: Date = .distantPast
+    private var countdownTimer: Timer?
+    private var remainingMinutes: Int = 0
 
     var onEscDismiss: (() -> Void)?
 
-    func showOnAllScreens(text: String) {
+    func showOnAllScreens(text: String, dismissMinutes: Int) {
         dismissAll()
 
+        remainingMinutes = dismissMinutes
+        let countdownText = formatCountdown(remainingMinutes)
+
         for screen in NSScreen.screens {
-            let panel = createPanel(for: screen, text: text)
+            let panel = createPanel(for: screen, text: text, countdownText: countdownText)
             panels.append(panel)
             panel.orderFrontRegardless()
         }
 
         startEscMonitor()
+        startCountdownTimer()
     }
 
     func dismissAll() {
         stopEscMonitor()
+        countdownTimer?.invalidate()
+        countdownTimer = nil
         for panel in panels {
             panel.close()
         }
@@ -56,7 +64,28 @@ final class ReminderWindowController {
         }
     }
 
-    private func createPanel(for screen: NSScreen, text: String) -> NSPanel {
+    private func formatCountdown(_ minutes: Int) -> String {
+        "剩余 \(minutes) 分钟（5次Esc强制退出）"
+    }
+
+    private func startCountdownTimer() {
+        countdownTimer?.invalidate()
+        countdownTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.updateCountdown()
+            }
+        }
+    }
+
+    private func updateCountdown() {
+        remainingMinutes = max(0, remainingMinutes - 1)
+        let text = formatCountdown(remainingMinutes)
+        for panel in panels {
+            (panel.contentView as? ReminderView)?.updateCountdown(text)
+        }
+    }
+
+    private func createPanel(for screen: NSScreen, text: String, countdownText: String) -> NSPanel {
         let panel = NSPanel(
             contentRect: screen.frame,
             styleMask: [.nonactivatingPanel, .fullSizeContentView],
@@ -71,7 +100,7 @@ final class ReminderWindowController {
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.setFrame(screen.frame, display: true)
 
-        let contentView = ReminderView(frame: screen.frame, text: text)
+        let contentView = ReminderView(frame: screen.frame, text: text, countdownText: countdownText)
         panel.contentView = contentView
 
         return panel
@@ -83,17 +112,24 @@ final class ReminderWindowController {
 private class ReminderView: NSVisualEffectView {
     private let gradientLayer = CAGradientLayer()
     private let label = NSTextField(labelWithString: "")
+    private let countdownLabel = NSTextField(labelWithString: "")
     private var breathingAnimation: CABasicAnimation?
     private let text: String
+    private let countdownText: String
 
-    init(frame: NSRect, text: String) {
+    init(frame: NSRect, text: String, countdownText: String) {
         self.text = text
+        self.countdownText = countdownText
         super.init(frame: frame)
         setup()
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    func updateCountdown(_ text: String) {
+        countdownLabel.stringValue = text
     }
 
     private func setup() {
@@ -128,6 +164,18 @@ private class ReminderView: NSVisualEffectView {
     }
 
     private func setupLabel() {
+        // Countdown label
+        countdownLabel.stringValue = countdownText
+        countdownLabel.font = NSFont(name: "PingFang SC Regular", size: 18) ?? NSFont.systemFont(ofSize: 18)
+        countdownLabel.textColor = NSColor.white.withAlphaComponent(0.8)
+        countdownLabel.alignment = .center
+        countdownLabel.isBezeled = false
+        countdownLabel.isEditable = false
+        countdownLabel.drawsBackground = false
+        countdownLabel.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(countdownLabel)
+
+        // Reminder label
         label.stringValue = text
         label.font = NSFont(name: "PingFang SC Medium", size: 28) ?? NSFont.systemFont(ofSize: 28, weight: .medium)
         label.textColor = .white
@@ -141,7 +189,11 @@ private class ReminderView: NSVisualEffectView {
         NSLayoutConstraint.activate([
             label.centerXAnchor.constraint(equalTo: centerXAnchor),
             label.centerYAnchor.constraint(equalTo: centerYAnchor),
-            label.widthAnchor.constraint(lessThanOrEqualTo: widthAnchor, multiplier: 0.8)
+            label.widthAnchor.constraint(lessThanOrEqualTo: widthAnchor, multiplier: 0.8),
+
+            countdownLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
+            countdownLabel.bottomAnchor.constraint(equalTo: label.topAnchor, constant: -16),
+            countdownLabel.widthAnchor.constraint(lessThanOrEqualTo: widthAnchor, multiplier: 0.8)
         ])
     }
 

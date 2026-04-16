@@ -17,6 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private enum DefaultsKey {
         static let sedentaryMinutes = "sedentaryMinutes"
         static let reminderDismissMinutes = "reminderDismissMinutes"
+        static let sessionEndMinutes = "sessionEndMinutes"
         static let reminderText = "reminderText"
     }
 
@@ -38,6 +39,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let dismiss = defaults.object(forKey: DefaultsKey.reminderDismissMinutes) as? Int {
             activityMonitor.reminderDismissMinutes = dismiss
         }
+        if let sessionEnd = defaults.object(forKey: DefaultsKey.sessionEndMinutes) as? Int {
+            activityMonitor.sessionEndMinutes = sessionEnd
+        }
         if let text = defaults.string(forKey: DefaultsKey.reminderText) {
             reminderText = text
         }
@@ -47,6 +51,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let defaults = UserDefaults.standard
         defaults.set(activityMonitor.sedentaryMinutes, forKey: DefaultsKey.sedentaryMinutes)
         defaults.set(activityMonitor.reminderDismissMinutes, forKey: DefaultsKey.reminderDismissMinutes)
+        defaults.set(activityMonitor.sessionEndMinutes, forKey: DefaultsKey.sessionEndMinutes)
         defaults.set(reminderText, forKey: DefaultsKey.reminderText)
     }
 
@@ -97,7 +102,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     of: "{{sedentaryMinutes}}",
                     with: "\(self.activityMonitor.sedentaryMinutes)"
                 )
-                self.reminderController.showOnAllScreens(text: text)
+                self.reminderController.showOnAllScreens(text: text, dismissMinutes: self.activityMonitor.reminderDismissMinutes)
             }
         }
 
@@ -149,19 +154,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func openSettings() {
-        if settingsWindowController == nil {
-            settingsWindowController = SettingsWindowController(
-                currentMinutes: activityMonitor.sedentaryMinutes,
-                dismissMinutes: activityMonitor.reminderDismissMinutes,
-                reminderText: reminderText
-            )
-            settingsWindowController?.onSettingsChanged = { [weak self] settings in
-                guard let self = self else { return }
-                self.activityMonitor.sedentaryMinutes = settings.sedentaryMinutes
-                self.activityMonitor.reminderDismissMinutes = settings.dismissMinutes
-                self.reminderText = settings.reminderText
-                self.saveSettings()
-            }
+        settingsWindowController = SettingsWindowController(
+            currentMinutes: activityMonitor.sedentaryMinutes,
+            dismissMinutes: activityMonitor.reminderDismissMinutes,
+            sessionEndMinutes: activityMonitor.sessionEndMinutes,
+            reminderText: reminderText
+        )
+        settingsWindowController?.onSettingsChanged = { [weak self] settings in
+            guard let self = self else { return }
+            self.activityMonitor.sedentaryMinutes = settings.sedentaryMinutes
+            self.activityMonitor.reminderDismissMinutes = settings.dismissMinutes
+            self.activityMonitor.sessionEndMinutes = settings.sessionEndMinutes
+            self.reminderText = settings.reminderText
+            self.saveSettings()
         }
         settingsWindowController?.showWindow(nil)
         NSApp.activate(ignoringOtherApps: true)

@@ -7,11 +7,12 @@
    - 窗口中央显示提醒文本（默认「久坐 {{sedentaryMinutes}} 分钟了，休息一下吧！」，可在设置中修改），字体为 PingFang SC Medium，白色，大小 28pt，添加宽度平滑过渡动画。
    - 直到用户连续一定时间（默认 10 分钟，可在设置中修改）无任何键盘或鼠标活动时，才关闭所有提醒窗。
    - 紧急关闭：连续按 5 次 Esc 键立即关闭所有提醒窗口并重置久坐计时器。
+   - 在提醒文本上方显示自动关闭倒计时（例如：`剩余 9 分钟（5次Esc强制退出）`），每分钟更新一次。
 4. 在菜单栏提供以下菜单项（顺序）：
    - **Enabled**：启用/禁用监测
    - **Launch at Login**：开机自动启动（使用 SMAppService）
    - **Log** 子菜单：包含 Open Log File 入口
-   - **Settings...**：打开设置窗口，包含久坐提醒时间、提醒窗口显示时间和提醒文本设置
+   - **Settings...**：打开设置窗口，包含久坐提醒时间、提醒窗口显示时间、离开判定时间和提醒文本设置
    - **Quit**：退出应用
 5. 所有设置保存到 UserDefaults，应用启动时加载设置并应用。
 6. 应用以 LSUIElement 模式运行（仅菜单栏图标，无 Dock 图标）。使用 Swift Package Manager 构建，提供 Makefile（build/run/install/clean），构建产物为签名的 .app bundle。

@@ -23,7 +23,7 @@ Sources/
   AppDelegate.swift             # Menu bar setup, coordinates monitor ↔ reminders, UserDefaults persistence
   ActivityMonitor.swift         # Global keyboard/mouse event listeners, session state machine
   ReminderWindowController.swift # Full-screen NSPanel on every connected display
-  SettingsWindowController.swift # Settings window (sedentary time, dismiss time, reminder text)
+  SettingsWindowController.swift # Settings window (sedentary time, dismiss time, session-end time, reminder text)
   Logger.swift                  # Thread-safe daily log → ~/Documents/SittingMonitor-YYYYMMDD.log
   Info.plist                    # LSUIElement=true, excluded from SPM target
 ```
@@ -45,13 +45,14 @@ Sources/
 |----------|---------|----------|
 | Sedentary threshold | 45 min | `ActivityMonitor.sedentaryMinutes` |
 | Dismiss inactivity | 10 min | `ActivityMonitor.reminderDismissMinutes` |
-| Session-end inactivity | 10 min | `ActivityMonitor.sessionEndInactivity` |
+| Session-end inactivity | 10 min | `ActivityMonitor.sessionEndMinutes` |
 | Check interval | 5 sec | `ActivityMonitor.startTimer()` |
 | Gradient color | #407245 | `ReminderView.setupGradient()` |
 | Reminder text template | `久坐 {{sedentaryMinutes}} 分钟了，休息一下吧！` | `AppDelegate.reminderText` |
 | Log retention | 2 days | `Logger.cleanupOldLogs()` |
 | Esc dismiss count | 5 presses | `ReminderWindowController.startEscMonitor()` |
 | Esc reset window | 2 sec | `ReminderWindowController.startEscMonitor()` |
+| Countdown update | 60 sec | `ReminderWindowController.startCountdownTimer()` |
 
 ## Pitfalls
 

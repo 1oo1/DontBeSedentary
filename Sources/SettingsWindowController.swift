@@ -3,19 +3,26 @@ import Cocoa
 struct SettingsData {
     var sedentaryMinutes: Int
     var dismissMinutes: Int
+    var sessionEndMinutes: Int
     var reminderText: String
 }
 
 @MainActor
-final class SettingsWindowController: NSWindowController {
+final class SettingsWindowController: NSWindowController, NSTextFieldDelegate {
     private var sedentaryField: NSTextField!
     private var dismissField: NSTextField!
+    private var sessionEndField: NSTextField!
     private var textField: NSTextField!
+    private var saveButton: NSButton!
+    private var initialSedentary: String = ""
+    private var initialDismiss: String = ""
+    private var initialSessionEnd: String = ""
+    private var initialText: String = ""
     var onSettingsChanged: ((SettingsData) -> Void)?
 
-    convenience init(currentMinutes: Int, dismissMinutes: Int, reminderText: String) {
+    convenience init(currentMinutes: Int, dismissMinutes: Int, sessionEndMinutes: Int, reminderText: String) {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 420, height: 280),
+            contentRect: NSRect(x: 0, y: 0, width: 420, height: 340),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -25,10 +32,10 @@ final class SettingsWindowController: NSWindowController {
         window.isReleasedWhenClosed = false
 
         self.init(window: window)
-        setupUI(currentMinutes: currentMinutes, dismissMinutes: dismissMinutes, reminderText: reminderText)
+        setupUI(currentMinutes: currentMinutes, dismissMinutes: dismissMinutes, sessionEndMinutes: sessionEndMinutes, reminderText: reminderText)
     }
 
-    private func setupUI(currentMinutes: Int, dismissMinutes: Int, reminderText: String) {
+    private func setupUI(currentMinutes: Int, dismissMinutes: Int, sessionEndMinutes: Int, reminderText: String) {
         guard let contentView = window?.contentView else { return }
 
         let numFormatter = NumberFormatter()
@@ -64,6 +71,20 @@ final class SettingsWindowController: NSWindowController {
         dismissField.formatter = numFormatter
         contentView.addSubview(dismissField)
 
+        // Session-end inactivity
+        let sessionEndLabel = NSTextField(labelWithString: "离开判定时间（分钟）：")
+        sessionEndLabel.font = NSFont.systemFont(ofSize: 14)
+        sessionEndLabel.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(sessionEndLabel)
+
+        sessionEndField = NSTextField()
+        sessionEndField.stringValue = "\(sessionEndMinutes)"
+        sessionEndField.font = NSFont.monospacedDigitSystemFont(ofSize: 14, weight: .regular)
+        sessionEndField.alignment = .center
+        sessionEndField.translatesAutoresizingMaskIntoConstraints = false
+        sessionEndField.formatter = numFormatter
+        contentView.addSubview(sessionEndField)
+
         // Reminder text
         let textLabel = NSTextField(labelWithString: "提醒文本（可用 {{sedentaryMinutes}}）：")
         textLabel.font = NSFont.systemFont(ofSize: 14)
@@ -77,11 +98,24 @@ final class SettingsWindowController: NSWindowController {
         contentView.addSubview(textField)
 
         // Save button
-        let saveButton = NSButton(title: "Save", target: self, action: #selector(saveClicked))
+        saveButton = NSButton(title: "Save", target: self, action: #selector(saveClicked))
         saveButton.translatesAutoresizingMaskIntoConstraints = false
         saveButton.bezelStyle = .rounded
         saveButton.keyEquivalent = "\r"
+        saveButton.isEnabled = false
         contentView.addSubview(saveButton)
+
+        // Store initial values for change tracking
+        initialSedentary = "\(currentMinutes)"
+        initialDismiss = "\(dismissMinutes)"
+        initialSessionEnd = "\(sessionEndMinutes)"
+        initialText = reminderText
+
+        // Set delegates for change detection
+        sedentaryField.delegate = self
+        dismissField.delegate = self
+        sessionEndField.delegate = self
+        textField.delegate = self
 
         NSLayoutConstraint.activate([
             sedentaryLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
@@ -98,8 +132,15 @@ final class SettingsWindowController: NSWindowController {
             dismissField.topAnchor.constraint(equalTo: dismissLabel.bottomAnchor, constant: 6),
             dismissField.widthAnchor.constraint(equalToConstant: 80),
 
+            sessionEndLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            sessionEndLabel.topAnchor.constraint(equalTo: dismissField.bottomAnchor, constant: 16),
+
+            sessionEndField.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            sessionEndField.topAnchor.constraint(equalTo: sessionEndLabel.bottomAnchor, constant: 6),
+            sessionEndField.widthAnchor.constraint(equalToConstant: 80),
+
             textLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            textLabel.topAnchor.constraint(equalTo: dismissField.bottomAnchor, constant: 16),
+            textLabel.topAnchor.constraint(equalTo: sessionEndField.bottomAnchor, constant: 16),
 
             textField.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
             textField.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
@@ -110,20 +151,30 @@ final class SettingsWindowController: NSWindowController {
         ])
     }
 
+    func controlTextDidChange(_ obj: Notification) {
+        let changed = sedentaryField.stringValue != initialSedentary ||
+                      dismissField.stringValue != initialDismiss ||
+                      sessionEndField.stringValue != initialSessionEnd ||
+                      textField.stringValue != initialText
+        saveButton.isEnabled = changed
+    }
+
     @objc private func saveClicked() {
         let sedentary = sedentaryField.integerValue
         let dismiss = dismissField.integerValue
+        let sessionEnd = sessionEndField.integerValue
         let text = textField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        guard sedentary > 0, dismiss > 0, !text.isEmpty else { return }
+        guard sedentary > 0, dismiss > 0, sessionEnd > 0, !text.isEmpty else { return }
 
         let settings = SettingsData(
             sedentaryMinutes: sedentary,
             dismissMinutes: dismiss,
+            sessionEndMinutes: sessionEnd,
             reminderText: text
         )
         onSettingsChanged?(settings)
-        Logger.shared.log("用户修改设置：久坐提醒 \(sedentary) 分钟，提醒显示 \(dismiss) 分钟，文本「\(text)」")
+        Logger.shared.log("用户修改设置：久坐提醒 \(sedentary) 分钟，提醒显示 \(dismiss) 分钟，离开判定 \(sessionEnd) 分钟，文本「\(text)」")
         window?.close()
     }
 }
