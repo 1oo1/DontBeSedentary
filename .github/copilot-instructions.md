@@ -7,10 +7,11 @@ macOS menu-bar utility that monitors keyboard/mouse activity to detect prolonged
 ## Build and Test
 
 ```bash
-make build    # SPM release build → .build/DontBeSedentary.app (ad-hoc signed)
-make run      # Build + open the app
-make install  # Copy .app to /Applications
-make clean    # Remove build artifacts
+make build      # Clean + SPM release build → .build/DontBeSedentary.app (ad-hoc signed)
+make run        # Build + open the app
+make install    # Uninstall old + copy .app to /Applications
+make uninstall  # Kill process + remove .app from /Applications
+make clean      # Remove build artifacts
 ```
 
 No test target exists. Verify changes by building (`make build`) and running (`make run`).

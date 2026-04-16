@@ -13,6 +13,7 @@
    - **Launch at Login**：开机自动启动（使用 SMAppService）
    - **Log** 子菜单：包含 Open Log File 入口
    - **Settings...**：打开设置窗口，包含久坐提醒时间、提醒窗口显示时间、离开判定时间和提醒文本设置
+   - **Version x.x.x**：显示当前版本号（不可点击）
    - **Quit**：退出应用
 5. 所有设置保存到 UserDefaults，应用启动时加载设置并应用。
 6. 应用以 LSUIElement 模式运行（仅菜单栏图标，无 Dock 图标）。使用 Swift Package Manager 构建，提供 Makefile（build/run/install/clean），构建产物为签名的 .app bundle。

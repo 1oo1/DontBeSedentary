@@ -6,9 +6,9 @@ MACOS_DIR = $(CONTENTS_DIR)/MacOS
 RESOURCES_DIR = $(CONTENTS_DIR)/Resources
 INSTALL_DIR = /Applications
 
-.PHONY: build run install clean
+.PHONY: build run install uninstall clean
 
-build:
+build: clean
 	swift build -c release
 	# Create .app bundle
 	mkdir -p $(MACOS_DIR) $(RESOURCES_DIR)
@@ -22,7 +22,12 @@ build:
 run: build
 	open $(APP_BUNDLE)
 
-install: build
+uninstall:
+	-pkill -x $(APP_NAME)
+	rm -rf $(INSTALL_DIR)/$(APP_NAME).app
+	@echo "Uninstalled $(INSTALL_DIR)/$(APP_NAME).app"
+
+install: uninstall build
 	cp -R $(APP_BUNDLE) $(INSTALL_DIR)/$(APP_NAME).app
 	@echo "Installed to $(INSTALL_DIR)/$(APP_NAME).app"
 
