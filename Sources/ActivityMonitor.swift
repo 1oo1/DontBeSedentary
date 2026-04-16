@@ -1,5 +1,6 @@
 import Cocoa
 
+@MainActor
 final class ActivityMonitor {
     private var keyboardEventMonitor: Any?
     private var mouseEventMonitor: Any?
@@ -74,7 +75,9 @@ final class ActivityMonitor {
 
     private func startTimer() {
         timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
-            self?.checkStatus()
+            MainActor.assumeIsolated {
+                self?.checkStatus()
+            }
         }
     }
 
