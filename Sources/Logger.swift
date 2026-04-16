@@ -17,7 +17,9 @@ final class Logger: @unchecked Sendable {
     }()
 
     private init() {
-        docsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        docsDir = docs.appendingPathComponent("DontBeSedentary")
+        try? FileManager.default.createDirectory(at: docsDir, withIntermediateDirectories: true)
     }
 
     private func currentFileURL() -> URL {
