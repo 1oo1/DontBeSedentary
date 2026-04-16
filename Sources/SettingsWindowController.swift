@@ -8,7 +8,7 @@ struct SettingsData {
 }
 
 @MainActor
-final class SettingsWindowController: NSWindowController, NSTextFieldDelegate {
+final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSTextFieldDelegate {
     private var sedentaryField: NSTextField!
     private var dismissField: NSTextField!
     private var sessionEndField: NSTextField!
@@ -19,6 +19,7 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate {
     private var initialSessionEnd: String = ""
     private var initialText: String = ""
     var onSettingsChanged: ((SettingsData) -> Void)?
+    var onWindowClose: (() -> Void)?
 
     convenience init(currentMinutes: Int, dismissMinutes: Int, sessionEndMinutes: Int, reminderText: String) {
         let window = NSWindow(
@@ -32,6 +33,7 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate {
         window.isReleasedWhenClosed = false
 
         self.init(window: window)
+        window.delegate = self
         setupUI(currentMinutes: currentMinutes, dismissMinutes: dismissMinutes, sessionEndMinutes: sessionEndMinutes, reminderText: reminderText)
     }
 
@@ -176,5 +178,9 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate {
         onSettingsChanged?(settings)
         Logger.shared.log("用户修改设置：久坐提醒 \(sedentary) 分钟，提醒显示 \(dismiss) 分钟，离开判定 \(sessionEnd) 分钟，文本「\(text)」")
         window?.close()
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        onWindowClose?()
     }
 }

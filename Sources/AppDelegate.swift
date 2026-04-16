@@ -168,6 +168,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.reminderText = settings.reminderText
             self.saveSettings()
         }
+        settingsWindowController?.onWindowClose = { [weak self] in
+            self?.settingsWindowController = nil
+        }
         settingsWindowController?.showWindow(nil)
         NSApp.activate(ignoringOtherApps: true)
     }

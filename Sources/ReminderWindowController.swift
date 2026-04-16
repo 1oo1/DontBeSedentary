@@ -3,7 +3,8 @@ import Cocoa
 @MainActor
 final class ReminderWindowController {
     private var panels: [NSPanel] = []
-    private var escMonitor: Any?
+    private var escGlobalMonitor: Any?
+    private var escLocalMonitor: Any?
     private var escPressCount: Int = 0
     private var lastEscTime: Date = .distantPast
     private var countdownTimer: Timer?
@@ -40,27 +41,38 @@ final class ReminderWindowController {
     private func startEscMonitor() {
         stopEscMonitor()
         escPressCount = 0
-        escMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
+
+        let handleEsc: (NSEvent) -> Void = { [weak self] event in
             guard let self = self, event.keyCode == 53 else { return } // 53 = Esc
-            let now = Date()
-            if now.timeIntervalSince(self.lastEscTime) > 2.0 {
-                self.escPressCount = 0
-            }
-            self.lastEscTime = now
-            self.escPressCount += 1
-            if self.escPressCount >= 5 {
-                DispatchQueue.main.async {
+            MainActor.assumeIsolated {
+                let now = Date()
+                if now.timeIntervalSince(self.lastEscTime) > 2.0 {
+                    self.escPressCount = 0
+                }
+                self.lastEscTime = now
+                self.escPressCount += 1
+                if self.escPressCount >= 5 {
                     self.dismissAll()
                     self.onEscDismiss?()
                 }
             }
         }
+
+        escGlobalMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown, handler: handleEsc)
+        escLocalMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            handleEsc(event)
+            return event
+        }
     }
 
     private func stopEscMonitor() {
-        if let monitor = escMonitor {
+        if let monitor = escGlobalMonitor {
             NSEvent.removeMonitor(monitor)
-            escMonitor = nil
+            escGlobalMonitor = nil
+        }
+        if let monitor = escLocalMonitor {
+            NSEvent.removeMonitor(monitor)
+            escLocalMonitor = nil
         }
     }
 
