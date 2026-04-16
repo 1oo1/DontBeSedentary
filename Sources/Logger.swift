@@ -1,6 +1,6 @@
 import Cocoa
 
-final class Logger {
+final class Logger: @unchecked Sendable {
     static let shared = Logger()
 
     private let docsDir: URL

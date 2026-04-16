@@ -6,6 +6,7 @@ struct SettingsData {
     var reminderText: String
 }
 
+@MainActor
 final class SettingsWindowController: NSWindowController {
     private var sedentaryField: NSTextField!
     private var dismissField: NSTextField!

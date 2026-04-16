@@ -1,6 +1,7 @@
 import Cocoa
 import ServiceManagement
 
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private let activityMonitor = ActivityMonitor()

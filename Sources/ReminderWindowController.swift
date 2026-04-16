@@ -1,5 +1,6 @@
 import Cocoa
 
+@MainActor
 final class ReminderWindowController {
     private var panels: [NSPanel] = []
     private var escMonitor: Any?

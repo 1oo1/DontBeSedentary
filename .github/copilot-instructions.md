@@ -2,7 +2,7 @@
 
 ## Overview
 
-macOS menu-bar utility that monitors keyboard/mouse activity to detect prolonged sitting and shows full-screen reminders. Swift, macOS 14+, menu-bar-only (LSUIElement).
+macOS menu-bar utility that monitors keyboard/mouse activity to detect prolonged sitting and shows full-screen reminders. Swift, macOS 26.3+, menu-bar-only (LSUIElement).
 
 ## Build and Test
 
