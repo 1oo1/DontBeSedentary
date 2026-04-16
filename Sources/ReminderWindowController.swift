@@ -3,14 +3,10 @@ import Cocoa
 @MainActor
 final class ReminderWindowController {
     private var panels: [NSPanel] = []
-    private var escGlobalMonitor: Any?
-    private var escLocalMonitor: Any?
-    private var escPressCount: Int = 0
-    private var lastEscTime: Date = .distantPast
     private var countdownTimer: Timer?
     private var remainingMinutes: Int = 0
 
-    var onEscDismiss: (() -> Void)?
+    var onCloseButtonDismiss: (() -> Void)?
 
     func showOnAllScreens(text: String, dismissMinutes: Int) {
         dismissAll()
@@ -24,12 +20,10 @@ final class ReminderWindowController {
             panel.orderFrontRegardless()
         }
 
-        startEscMonitor()
         startCountdownTimer()
     }
 
     func dismissAll() {
-        stopEscMonitor()
         countdownTimer?.invalidate()
         countdownTimer = nil
         for panel in panels {
@@ -38,46 +32,13 @@ final class ReminderWindowController {
         panels.removeAll()
     }
 
-    private func startEscMonitor() {
-        stopEscMonitor()
-        escPressCount = 0
-
-        let handleEsc: (NSEvent) -> Void = { [weak self] event in
-            guard let self = self, event.keyCode == 53 else { return } // 53 = Esc
-            MainActor.assumeIsolated {
-                let now = Date()
-                if now.timeIntervalSince(self.lastEscTime) > 2.0 {
-                    self.escPressCount = 0
-                }
-                self.lastEscTime = now
-                self.escPressCount += 1
-                if self.escPressCount >= 5 {
-                    self.dismissAll()
-                    self.onEscDismiss?()
-                }
-            }
-        }
-
-        escGlobalMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown, handler: handleEsc)
-        escLocalMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            handleEsc(event)
-            return event
-        }
-    }
-
-    private func stopEscMonitor() {
-        if let monitor = escGlobalMonitor {
-            NSEvent.removeMonitor(monitor)
-            escGlobalMonitor = nil
-        }
-        if let monitor = escLocalMonitor {
-            NSEvent.removeMonitor(monitor)
-            escLocalMonitor = nil
-        }
+    private func handleCloseButton() {
+        dismissAll()
+        onCloseButtonDismiss?()
     }
 
     private func formatCountdown(_ minutes: Int) -> String {
-        "剩余 \(minutes) 分钟（5次Esc强制退出）"
+        "剩余 \(minutes) 分钟"
     }
 
     private func startCountdownTimer() {
@@ -108,14 +69,78 @@ final class ReminderWindowController {
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = false
-        panel.ignoresMouseEvents = true
+        panel.ignoresMouseEvents = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.setFrame(screen.frame, display: true)
 
         let contentView = ReminderView(frame: screen.frame, text: text, countdownText: countdownText)
+        contentView.onClose = { [weak self] in
+            self?.handleCloseButton()
+        }
         panel.contentView = contentView
 
         return panel
+    }
+}
+
+// MARK: - CloseButton
+
+private class CloseButton: NSView {
+    var onTap: (() -> Void)?
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        setup()
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    private func setup() {
+        wantsLayer = true
+        layer?.cornerRadius = bounds.width / 2
+        layer?.masksToBounds = true
+
+        let blurView = NSVisualEffectView(frame: bounds)
+        blurView.material = .hudWindow
+        blurView.blendingMode = .withinWindow
+        blurView.state = .active
+        blurView.wantsLayer = true
+        blurView.layer?.cornerRadius = bounds.width / 2
+        blurView.layer?.masksToBounds = true
+        blurView.autoresizingMask = [.width, .height]
+        addSubview(blurView)
+
+        let symbol = NSTextField(labelWithString: "✕")
+        symbol.font = NSFont.systemFont(ofSize: 14, weight: .semibold)
+        symbol.textColor = NSColor.white.withAlphaComponent(0.9)
+        symbol.alignment = .center
+        symbol.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(symbol)
+
+        NSLayoutConstraint.activate([
+            symbol.centerXAnchor.constraint(equalTo: centerXAnchor),
+            symbol.centerYAnchor.constraint(equalTo: centerYAnchor)
+        ])
+
+        alphaValue = 0.8
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        alphaValue = 0.5
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        alphaValue = 0.8
+        let location = convert(event.locationInWindow, from: nil)
+        if bounds.contains(location) {
+            onTap?()
+        }
+    }
+
+    override func resetCursorRects() {
+        addCursorRect(bounds, cursor: .pointingHand)
     }
 }
 
@@ -125,9 +150,14 @@ private class ReminderView: NSVisualEffectView {
     private let gradientLayer = CAGradientLayer()
     private let label = NSTextField(labelWithString: "")
     private let countdownLabel = NSTextField(labelWithString: "")
+    private let closeButton = CloseButton(frame: NSRect(x: 0, y: 0, width: 36, height: 36))
     private var breathingAnimation: CABasicAnimation?
     private let text: String
     private let countdownText: String
+
+    var onClose: (() -> Void)? {
+        didSet { closeButton.onTap = onClose }
+    }
 
     init(frame: NSRect, text: String, countdownText: String) {
         self.text = text
@@ -144,6 +174,14 @@ private class ReminderView: NSVisualEffectView {
         countdownLabel.stringValue = text
     }
 
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        let buttonPoint = closeButton.convert(point, from: self)
+        if closeButton.bounds.contains(buttonPoint) {
+            return closeButton
+        }
+        return nil
+    }
+
     private func setup() {
         material = .hudWindow
         blendingMode = .behindWindow
@@ -152,6 +190,7 @@ private class ReminderView: NSVisualEffectView {
 
         setupGradient()
         setupLabel()
+        setupCloseButton()
         startAnimations()
     }
 
@@ -206,6 +245,17 @@ private class ReminderView: NSVisualEffectView {
             countdownLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
             countdownLabel.bottomAnchor.constraint(equalTo: label.topAnchor, constant: -16),
             countdownLabel.widthAnchor.constraint(lessThanOrEqualTo: widthAnchor, multiplier: 0.8)
+        ])
+    }
+
+    private func setupCloseButton() {
+        closeButton.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(closeButton)
+        NSLayoutConstraint.activate([
+            closeButton.topAnchor.constraint(equalTo: topAnchor, constant: 40),
+            closeButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -20),
+            closeButton.widthAnchor.constraint(equalToConstant: 36),
+            closeButton.heightAnchor.constraint(equalToConstant: 36)
         ])
     }
 

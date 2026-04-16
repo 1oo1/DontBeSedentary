@@ -21,7 +21,7 @@ final class ActivityMonitor {
         lastActivityTime = Date()
         sessionStartTime = Date()
         isUserActive = true
-        Logger.shared.log("提醒窗口被手动关闭（连续 5 次 Esc），久坐计时器已重置")
+        Logger.shared.log("提醒窗口被手动关闭（点击关闭按钮），久坐计时器已重置")
     }
 
     var sessionEndMinutes: Int = 10

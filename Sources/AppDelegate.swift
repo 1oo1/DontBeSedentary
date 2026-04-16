@@ -120,7 +120,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        reminderController.onEscDismiss = { [weak self] in
+        reminderController.onCloseButtonDismiss = { [weak self] in
             self?.activityMonitor.forceResetSession()
         }
     }

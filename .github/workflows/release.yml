@@ -7,11 +7,36 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: macos-26
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Bump version
+        id: version
+        run: |
+          CURRENT=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" Sources/Info.plist)
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+          NEW_PATCH=$((PATCH + 1))
+          NEW_VERSION="$MAJOR.$MINOR.$NEW_PATCH"
+          /usr/libexec/PlistBuddy -c "Set CFBundleShortVersionString $NEW_VERSION" Sources/Info.plist
+          /usr/libexec/PlistBuddy -c "Set CFBundleVersion $NEW_VERSION" Sources/Info.plist
+          echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$NEW_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Update README
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          URL="https://github.com/${{ github.repository }}/releases/download/${TAG}/DontBeSedentary.zip"
+          sed -i '' "s|最新版本: \[v[0-9.]*\]([^)]*)|最新版本: [${TAG}](${URL})|" README.md
 
       - name: Build app
         run: make build
@@ -19,14 +44,18 @@ jobs:
       - name: Zip app bundle
         run: cd .build && zip -r DontBeSedentary.zip DontBeSedentary.app
 
-      - name: Generate tag
-        id: tag
-        run: echo "tag=v1.0.$(git rev-list --count HEAD)" >> "$GITHUB_OUTPUT"
+      - name: Commit version bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Sources/Info.plist README.md
+          git diff --cached --quiet || git commit -m "chore: bump version to ${{ steps.version.outputs.version }} [skip ci]"
+          git push
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.tag.outputs.tag }}
-          name: Release ${{ steps.tag.outputs.tag }}
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Release ${{ steps.version.outputs.tag }}
           files: .build/DontBeSedentary.zip
           generate_release_notes: true

@@ -51,9 +51,8 @@ Sources/
 | Gradient color | #407245 | `ReminderView.setupGradient()` |
 | Reminder text template | `久坐 {{sedentaryMinutes}} 分钟了，休息一下吧！` | `AppDelegate.reminderText` |
 | Log retention | 2 days | `Logger.cleanupOldLogs()` |
-| Esc dismiss count | 5 presses | `ReminderWindowController.startEscMonitor()` |
-| Esc reset window | 2 sec | `ReminderWindowController.startEscMonitor()` |
 | Countdown update | 60 sec | `ReminderWindowController.startCountdownTimer()` |
+| Close button size | 36pt | `CloseButton` |
 
 ## Pitfalls
 
@@ -62,7 +61,7 @@ Sources/
 - **LSUIElement mode:** No Dock icon, no Cmd+Tab — only menu bar access; test menu interactions accordingly
 - **Info.plist:** Excluded from SPM target via `exclude:` in Package.swift; copied to .app bundle by Makefile
 - **Launch at Login:** Uses `SMAppService.mainApp` (macOS 13+); requires signed app bundle to function
-- **Esc dismiss:** Monitor is added/removed with panel lifecycle; uses `[weak self]` and `NSEvent.removeMonitor()` to prevent leaks
+- **Close button:** Uses `hitTest` override in ReminderView to pass through mouse events except on the close button; panel `ignoresMouseEvents` is `false`
 
 ## Spec Reference
 
