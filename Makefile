@@ -3,6 +3,7 @@ BUILD_DIR = .build
 APP_BUNDLE = $(BUILD_DIR)/$(APP_NAME).app
 CONTENTS_DIR = $(APP_BUNDLE)/Contents
 MACOS_DIR = $(CONTENTS_DIR)/MacOS
+RESOURCES_DIR = $(CONTENTS_DIR)/Resources
 INSTALL_DIR = /Applications
 
 .PHONY: build run install clean
@@ -10,9 +11,10 @@ INSTALL_DIR = /Applications
 build:
 	swift build -c release
 	# Create .app bundle
-	mkdir -p $(MACOS_DIR)
+	mkdir -p $(MACOS_DIR) $(RESOURCES_DIR)
 	cp $(BUILD_DIR)/release/$(APP_NAME) $(MACOS_DIR)/$(APP_NAME)
 	cp Sources/Info.plist $(CONTENTS_DIR)/Info.plist
+	cp Resources/AppIcon.icns $(RESOURCES_DIR)/AppIcon.icns
 	# Ad-hoc code sign
 	codesign --force --sign - $(APP_BUNDLE)
 	@echo "Built $(APP_BUNDLE)"
